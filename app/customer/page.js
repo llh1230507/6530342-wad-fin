@@ -1,7 +1,7 @@
 "use client";
 import Link from "next/link";
 import { useForm } from "react-hook-form";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 
 export default function Home() {
   const APIBASE = process.env.NEXT_PUBLIC_API_URL;
@@ -11,7 +11,7 @@ export default function Home() {
   const [currentCustomerId, setCurrentCustomerId] = useState(null); // Tracks current customer ID being edited
 
   // Fetch customers from the API
-  async function fetchCustomers() {
+  const fetchCustomers = useCallback(async () => {
     try {
       const data = await fetch(`${APIBASE}/customer`);
       const customerData = await data.json();
@@ -23,48 +23,51 @@ export default function Home() {
     } catch (error) {
       console.error("Error fetching customers:", error);
     }
-  }
+  }, [APIBASE]);
 
   // Create a new customer or update an existing one
   const createCustomerOrUpdate = async (data) => {
-    if (editMode) {
-      // Update existing customer
-      const response = await fetch(`${APIBASE}/customer/${currentCustomerId}`, {
-        method: "PUT",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify(data),
-      });
+    try {
+      if (editMode) {
+        // Update existing customer
+        const response = await fetch(`${APIBASE}/customer/${currentCustomerId}`, {
+          method: "PUT",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify(data),
+        });
 
-      if (!response.ok) {
-        alert(`Failed to update customer: ${response.status}`);
-        return;
+        if (!response.ok) {
+          alert(`Failed to update customer: ${response.status}`);
+          return;
+        }
+
+        alert("Customer updated successfully");
+        reset(); // Reset form after update
+        setEditMode(false);
+        setCurrentCustomerId(null); // Clear current customer being edited
+      } else {
+        // Create new customer
+        const response = await fetch(`${APIBASE}/customer`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify(data),
+        });
+
+        if (!response.ok) {
+          alert(`Failed to add customer: ${response.status}`);
+          return;
+        }
+
+        alert("Customer added successfully");
+        reset(); // Reset form after creation
       }
-
-      alert("Customer updated successfully");
-      reset(); // Reset form after update
-      setEditMode(false);
-      setCurrentCustomerId(null); // Clear current customer being edited
       fetchCustomers(); // Refresh customer list
-    } else {
-      // Create new customer
-      const response = await fetch(`${APIBASE}/customer`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify(data),
-      });
-
-      if (!response.ok) {
-        alert(`Failed to add customer: ${response.status}`);
-        return;
-      }
-
-      alert("Customer added successfully");
-      reset(); // Reset form after creation
-      fetchCustomers(); // Refresh customer list
+    } catch (error) {
+      console.error("Error creating or updating customer:", error);
     }
   };
 
@@ -95,7 +98,7 @@ export default function Home() {
   // Fetch customer data on initial load
   useEffect(() => {
     fetchCustomers();
-  }, []);
+  }, [fetchCustomers]);
 
   return (
     <>
@@ -144,8 +147,6 @@ export default function Home() {
           <ul className="list-disc ml-8">
             {customers.map((customer) => (
               <li key={customer._id}>
-                
-                
                 <button
                   className="border border-black p-1/2"
                   onClick={startEdit(customer)}
@@ -161,8 +162,7 @@ export default function Home() {
                 <Link href={`/customer/${customer._id}`} className="font-bold">
                   {customer.name}
                 </Link>{" "}
-                  {customer.MemberNumber} - {customer.Interests} - {new Date(customer.DateofBirth).toLocaleDateString()}
-                
+                {customer.MemberNumber} - {customer.Interests} - {new Date(customer.DateofBirth).toLocaleDateString()}
               </li>
             ))}
           </ul>
